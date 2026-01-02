@@ -1,94 +1,96 @@
-body { 
-  font-family: sans-serif; 
-  display: flex; 
-  flex-direction: column; 
-  align-items: center; 
-  background: #f0f0f0; 
-  margin: 0; 
-  padding: 20px; 
+body {
+    font-family: sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    background: #ddcbcb;
+    margin: 0;
+    padding: 20px;
+    user-select: none; /* Prevents highlighting text while drawing */
 }
 
-.toolbar { 
-  background: white; 
-  padding: 10px; 
-  border-radius: 8px; 
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
-  margin-bottom: 20px; 
-  display: flex; gap: 10px; 
-  align-items: center; 
-  flex-wrap: wrap; 
+/* Toolbar Styling */
+.toolbar {
+    background: white;
+    padding: 10px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+    display: flex;
+    gap: 15px;
+    align-items: flex-start;
+    max-width: 800px;
+    justify-content: center;
+    flex-wrap: wrap;
 }
 
-button { 
-  padding: 8px 12px; 
-  cursor: pointer; 
-  border: 1px solid #ccc; 
-  background: #fff; 
-  border-radius: 4px; 
-}
-button.active { 
-  background: #007bff; 
-  color: white; 
-  border-color: #0056b3; 
+.tool-group {
+    display: flex;
+    flex-direction: row;
+    align-items: center;
+    gap: 5px;
+    border-right: 1px solid #eee;
+    padding-right: 15px;
 }
 
-input[type="color"] { 
-  border: none; 
-  width: 40px; 
-  height: 40px; 
-  cursor: pointer;
+.tool-group:last-child {
+    border-right: none;
 }
 
-/* Canvas */
-.canvas-container { 
-  position: relative; 
-  box-shadow: 0 4px 10px rgba(0,0,0,0.2); 
-  background: white; 
-}
-canvas { 
-  display: block; 
-  cursor: crosshair; 
-}
-
-/* Custom Bead Modal */
-#customBeadModal { 
-  display: none; 
-  position: fixed; 
-  top: 50%; 
-  left: 50%; 
-  transform: translate(-50%, -50%); 
-  background: white; 
-  padding: 20px; 
-  border: 2px solid #333; 
-  box-shadow: 0 10px 25px rgba(0,0,0,0.5); 
-  z-index: 10; 
-  text-align: center; 
+button {
+    padding: 6px 10px;
+    cursor: pointer;
+    border: 1px solid #ccc;
+    background: #fff;
+    border-radius: 4px;
+    font-size: 14px;
+    min-width: 35px;
 }
 
-#overlay { 
-  display: none; 
-  position: fixed; 
-  top: 0; 
-  left: 0; 
-  width: 100%; 
-  height: 100%; 
-  background: rgba(0,0,0,0.5); 
-  z-index: 5; 
+button:hover { background: #f9f9f9; }
+button.active { background: #007bff; color: white; border-color: #0056b3; }
+button.print-btn { background: #28a745; color: white; border-color: #1e7e34; align-self: center;}
+
+input[type="color"] { border: none; width: 40px; height: 35px; cursor: pointer; }
+
+/* Canvas Stacking */
+.canvas-wrapper {
+    position: relative;
+    width: 800px;
+    height: 600px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    background: white;
+    /* This grid trick stacks children on top of each other */
+    display: grid; 
+    grid-template-areas: "canvas";
 }
 
-/* Print Styling */
+canvas {
+    grid-area: canvas; /* Both canvases occupy the same space */
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+}
+
+#tempCanvas {
+    z-index: 2; /* Sits on top to catch mouse events */
+}
+
+#overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.5);
+    z-index: 5;
+}
+
+/* Print/PDF Styling */
 @media print {
-  .toolbar, #customBeadModal, #overlay { 
-    display: none; 
-  }
-  body, .canvas-container { 
-    box-shadow: none; 
-    margin: 0; 
-    padding: 0; 
-    background: white; 
-  }
-  canvas { 
-    width: 100%; 
-    height: auto; 
-  }
+    .toolbar, #customBeadModal, #overlay { display: none; }
+    body, .canvas-wrapper { box-shadow: none; margin: 0; padding: 0; background: white; }
+    canvas { width: 100%; height: auto; border: 1px solid #eee; }
+    #tempCanvas { display: none; } /* Don't print the preview layer */
 }

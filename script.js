@@ -1,178 +1,210 @@
-// --- Main Canvas ---
-const canvas = document.getElementById('mainCanvas');
-const ctx = canvas.getContext('2d');
-ctx.lineCap = 'round';
-ctx.lineJoin = 'round';
+// --- DOM Elements ---
+const mainCanvas = document.getElementById('mainCanvas');
+const mainCtx = mainCanvas.getContext('2d');
+const tempCanvas = document.getElementById('tempCanvas'); // Overlay canvas
+const tempCtx = tempCanvas.getContext('2d');
 
-// --- Custom Bead Canvas ---
-const customCanvas = document.getElementById('customCanvas');
-const customCtx = customCanvas.getContext('2d');
-
-// --- State Variables ---
+// --- Global State ---
 let isDrawing = false;
-let currentTool = 'thread';
-let lastX = 0;
-let lastY = 0;
-let customStamp = null;
+let startX, startY;
+let currentTool = 'thread'; 
 
-// Configuration for brushes
+// Undo/Redo History
+let historyStack = [];
+let historyStep = -1;
+const MAX_HISTORY = 20;
+
+// Configuration
 const config = {
     threadWidth: 2,
     seedRadius: 4,
     seedSpacing: 10,
-    longWidth: 15, // Length
-    longHeight: 6, // Thickness
+    longWidth: 15,
+    longHeight: 6,
     longSpacing: 18,
-    customSpacing: 25
 };
 
-// --- Event Listeners ---
-canvas.addEventListener('mousedown', startDrawing);
-canvas.addEventListener('mousemove', draw);
-canvas.addEventListener('mouseup', stopDrawing);
-canvas.addEventListener('mouseout', stopDrawing);
+// Initialise
+mainCtx.lineCap = 'round';
+mainCtx.lineJoin = 'round';
+saveState(); // Save blank start state
 
-// Custom bead drawing listeners (simple dot drawing)
-let isMakingStamp = false;
-customCanvas.addEventListener('mousedown', (e) => {
-    isMakingStamp = true;
-    const rect = customCanvas.getBoundingClientRect();
-    customCtx.beginPath();
-    customCtx.moveTo(e.clientX - rect.left, e.clientY - rect.top);
-});
-customCanvas.addEventListener('mousemove', (e) => {
-    if (!isMakingStamp) return;
-    const rect = customCanvas.getBoundingClientRect();
-    customCtx.lineTo(e.clientX - rect.left, e.clientY - rect.top);
-    customCtx.stroke();
-});
-customCanvas.addEventListener('mouseup', () => isMakingStamp = false);
+// --- Event Listeners on Temp Canvas (Top Layer) ---
+tempCanvas.addEventListener('mousedown', startAction);
+tempCanvas.addEventListener('mousemove', moveAction);
+tempCanvas.addEventListener('mouseup', endAction);
+tempCanvas.addEventListener('mouseout', endAction);
 
-// --- Drawing Logic ---
+// --- Drawing Logic Controllers ---
 
-function startDrawing(e) {
+function startAction(e) {
     isDrawing = true;
-    [lastX, lastY] = getPos(e);
+    [startX, startY] = getPos(e);
     
-    // For thread, begin a path immediately
-    if (currentTool === 'thread') {
-        ctx.beginPath();
-        ctx.moveTo(lastX, lastY);
+    mainCtx.strokeStyle = document.getElementById('colorPicker').value;
+    mainCtx.fillStyle = document.getElementById('colorPicker').value;
+    mainCtx.lineWidth = config.threadWidth;
+
+    // If it's a brush tool, we start drawing immediately on Main Canvas
+    if (['thread', 'seed', 'long'].includes(currentTool)) {
+        mainCtx.beginPath();
+        mainCtx.moveTo(startX, startY);
     }
 }
 
-function stopDrawing() {
-    isDrawing = false;
-    ctx.beginPath(); // Reset path to prevent connecting lines
+function moveAction(e) {
+    if (!isDrawing) return;
+    const [currX, currY] = getPos(e);
+
+    // 1. BRUSH TOOLS (Draw directly on Main Canvas)
+    if (['thread', 'seed', 'long'].includes(currentTool)) {
+        drawBrush(currX, currY);
+    } 
+    // 2. SHAPE TOOLS (Draw on Temp Canvas to preview)
+    else {
+        // Clear temp canvas every frame to animate the drag
+        tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height);
+        tempCtx.strokeStyle = document.getElementById('colorPicker').value;
+        tempCtx.lineWidth = config.threadWidth;
+        drawShape(tempCtx, startX, startY, currX, currY, currentTool);
+    }
 }
 
-function draw(e) {
+function endAction(e) {
     if (!isDrawing) return;
+    isDrawing = false;
     
-    const [currX, currY] = getPos(e);
-    const color = document.getElementById('colorPicker').value;
-    ctx.fillStyle = color;
-    ctx.strokeStyle = color;
+    // If it was a shape tool, finalise it onto Main Canvas
+    if (['rect', 'circle', 'heart'].includes(currentTool)) {
+        const [currX, currY] = getPos(e);
+        tempCtx.clearRect(0, 0, tempCanvas.width, tempCanvas.height); // Clear preview
+        drawShape(mainCtx, startX, startY, currX, currY, currentTool); // Commit to main
+    }
 
-    // 1. EMBROIDERY THREAD
+    mainCtx.beginPath(); // Reset paths
+    saveState(); // Save for Undo/Redo
+}
+
+// --- Specific Drawing Implementations ---
+
+function drawBrush(currX, currY) {
+    // Determine last position (for spacing logic)
+    // For thread, we just want current path
     if (currentTool === 'thread') {
-        ctx.lineWidth = config.threadWidth;
-        ctx.lineTo(currX, currY);
-        ctx.stroke();
-        [lastX, lastY] = [currX, currY];
+        mainCtx.lineTo(currX, currY);
+        mainCtx.stroke();
+        [startX, startY] = [currX, currY];
         return;
     }
 
-    // Calculate distance and angle for bead placement
-    const dx = currX - lastX;
-    const dy = currY - lastY;
-    const distance = Math.sqrt(dx * dx + dy * dy);
+    const dx = currX - startX;
+    const dy = currY - startY;
+    const distance = Math.sqrt(dx*dx + dy*dy);
     const angle = Math.atan2(dy, dx);
 
-    // 2. SEED BEADS
-    if (currentTool === 'seed') {
-        if (distance > config.seedSpacing) {
-            ctx.beginPath();
-            ctx.arc(currX, currY, config.seedRadius, 0, Math.PI * 2);
-            ctx.fill();
-            [lastX, lastY] = [currX, currY];
-        }
-    }
+    // Spacing logic for beads
+    let spacing = config.seedSpacing;
+    if (currentTool === 'long') spacing = config.longSpacing;
 
-    // 3. LONG BEADS
-    else if (currentTool === 'long') {
-        if (distance > config.longSpacing) {
-            ctx.save();
-            ctx.translate(currX, currY);
-            ctx.rotate(angle); // Rotate to follow mouse direction
-            ctx.fillRect(-config.longWidth/2, -config.longHeight/2, config.longWidth, config.longHeight);
-            ctx.restore();
-            [lastX, lastY] = [currX, currY];
+    if (distance > spacing) {
+        if (currentTool === 'seed') {
+            mainCtx.beginPath();
+            mainCtx.arc(currX, currY, config.seedRadius, 0, Math.PI * 2);
+            mainCtx.fill();
+        } 
+        else if (currentTool === 'long') {
+            mainCtx.save();
+            mainCtx.translate(currX, currY);
+            mainCtx.rotate(angle);
+            mainCtx.fillRect(-config.longWidth/2, -config.longHeight/2, config.longWidth, config.longHeight);
+            mainCtx.restore();
         }
-    }
-
-    // 4. CUSTOM BEAD (Image Stamp)
-    else if (currentTool === 'custom' && customStamp) {
-        if (distance > config.customSpacing) {
-            ctx.save();
-            ctx.translate(currX, currY);
-            ctx.rotate(angle); // Optional: Rotate custom shape too
-            // Draw image centered
-            ctx.drawImage(customStamp, -25, -25, 50, 50);
-            ctx.restore();
-            [lastX, lastY] = [currX, currY];
-        }
+        [startX, startY] = [currX, currY];
     }
 }
 
-// Get mouse position relative to canvas
+function drawShape(ctx, x1, y1, x2, y2, type) {
+    const w = x2 - x1;
+    const h = y2 - y1;
+
+    ctx.beginPath();
+    
+    if (type === 'rect') {
+        ctx.rect(x1, y1, w, h);
+    } 
+    else if (type === 'circle') {
+        // Calculate radius based on drag distance
+        const radius = Math.sqrt(w*w + h*h);
+        ctx.arc(x1, y1, radius, 0, 2 * Math.PI);
+    } 
+    else if (type === 'heart') {
+        // Complex bezier curves for heart, scaled to box defined by mouse drag
+        const topY = y1 + h * 0.3;
+        const bottomY = y1 + h;
+        const centerX = x1 + w / 2;
+        
+        ctx.moveTo(centerX, topY);
+        ctx.bezierCurveTo(centerX, y1, x1, y1, x1, topY);
+        ctx.bezierCurveTo(x1, y1 + h * 0.6, centerX, bottomY, centerX, bottomY);
+        ctx.bezierCurveTo(centerX, bottomY, x2, y1 + h * 0.6, x2, topY);
+        ctx.bezierCurveTo(x2, y1, centerX, y1, centerX, topY);
+    }
+    
+    ctx.stroke();
+}
+
+// --- Utilities ---
 function getPos(e) {
-    const rect = canvas.getBoundingClientRect();
+    const rect = tempCanvas.getBoundingClientRect();
     return [e.clientX - rect.left, e.clientY - rect.top];
 }
 
-// --- Tool Switching ---
 function setTool(tool) {
     currentTool = tool;
-    // Update UI buttons
     document.querySelectorAll('.toolbar button').forEach(b => b.classList.remove('active'));
     
-    // Handle Custom vs Others
-    if(tool === 'custom') {
-        document.getElementById('btn-custom').classList.add('active');
-        if(!customStamp) openCustomModal(); // Force creation if empty
+    if (['rect', 'circle', 'heart'].includes(tool)) {
+        document.getElementById(`btn-${tool}`).classList.add('active');
     } else {
         document.getElementById(`btn-${tool}`).classList.add('active');
     }
 }
 
-function clearCanvas() {
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+// --- Undo / Redo System ---
+function saveState() {
+    // If we undo and then draw, we cut off the "future" history
+    if (historyStep < historyStack.length - 1) {
+        historyStack = historyStack.slice(0, historyStep + 1);
+    }
+    historyStack.push(mainCanvas.toDataURL());
+    if (historyStack.length > MAX_HISTORY) historyStack.shift(); // Limit memory
+    historyStep = historyStack.length - 1;
 }
 
-// --- Custom Bead Modal ---
-function openCustomModal() {
-    document.getElementById('customBeadModal').style.display = 'block';
-    document.getElementById('overlay').style.display = 'block';
-    // Clear the small canvas for new drawing
-    customCtx.fillStyle = "white";
-    customCtx.fillRect(0,0,50,50);
-    customCtx.lineWidth = 2;
-    customCtx.strokeStyle = "black";
+function undo() {
+    if (historyStep > 0) {
+        historyStep--;
+        restoreState();
+    }
 }
 
-function closeCustomModal() {
-    document.getElementById('customBeadModal').style.display = 'none';
-    document.getElementById('overlay').style.display = 'none';
+function redo() {
+    if (historyStep < historyStack.length - 1) {
+        historyStep++;
+        restoreState();
+    }
 }
 
-function saveCustomShape() {
-    const dataURL = customCanvas.toDataURL();
+function restoreState() {
     const img = new Image();
-    img.src = dataURL;
+    img.src = historyStack[historyStep];
     img.onload = () => {
-        customStamp = img;
-        setTool('custom');
-        closeCustomModal();
+        mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+        mainCtx.drawImage(img, 0, 0);
     };
+}
+
+function clearCanvas() {
+    mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+    saveState();
 }
