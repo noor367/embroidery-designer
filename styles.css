@@ -1,0 +1,94 @@
+body { 
+  font-family: sans-serif; 
+  display: flex; 
+  flex-direction: column; 
+  align-items: center; 
+  background: #f0f0f0; 
+  margin: 0; 
+  padding: 20px; 
+}
+
+.toolbar { 
+  background: white; 
+  padding: 10px; 
+  border-radius: 8px; 
+  box-shadow: 0 2px 5px rgba(0,0,0,0.1); 
+  margin-bottom: 20px; 
+  display: flex; gap: 10px; 
+  align-items: center; 
+  flex-wrap: wrap; 
+}
+
+button { 
+  padding: 8px 12px; 
+  cursor: pointer; 
+  border: 1px solid #ccc; 
+  background: #fff; 
+  border-radius: 4px; 
+}
+button.active { 
+  background: #007bff; 
+  color: white; 
+  border-color: #0056b3; 
+}
+
+input[type="color"] { 
+  border: none; 
+  width: 40px; 
+  height: 40px; 
+  cursor: pointer;
+}
+
+/* Canvas */
+.canvas-container { 
+  position: relative; 
+  box-shadow: 0 4px 10px rgba(0,0,0,0.2); 
+  background: white; 
+}
+canvas { 
+  display: block; 
+  cursor: crosshair; 
+}
+
+/* Custom Bead Modal */
+#customBeadModal { 
+  display: none; 
+  position: fixed; 
+  top: 50%; 
+  left: 50%; 
+  transform: translate(-50%, -50%); 
+  background: white; 
+  padding: 20px; 
+  border: 2px solid #333; 
+  box-shadow: 0 10px 25px rgba(0,0,0,0.5); 
+  z-index: 10; 
+  text-align: center; 
+}
+
+#overlay { 
+  display: none; 
+  position: fixed; 
+  top: 0; 
+  left: 0; 
+  width: 100%; 
+  height: 100%; 
+  background: rgba(0,0,0,0.5); 
+  z-index: 5; 
+}
+
+/* Print Styling */
+@media print {
+  .toolbar, #customBeadModal, #overlay { 
+    display: none; 
+  }
+  body, .canvas-container { 
+    box-shadow: none; 
+    margin: 0; 
+    padding: 0; 
+    background: white; 
+  }
+  canvas { 
+    width: 100%; 
+    height: auto; 
+  }
+}

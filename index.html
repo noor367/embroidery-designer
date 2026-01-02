@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Embroidery Planner</title>
+    <link rel='stylesheet' href='styles.css' >
+</head>
+<body>
+
+    <div class="toolbar">
+        <strong>Tool:</strong>
+        <button onclick="setTool('thread')" id="btn-thread" class="active">Thread</button>
+        <button onclick="setTool('seed')" id="btn-seed">Seed Bead</button>
+        <button onclick="setTool('long')" id="btn-long">Long Bead</button>
+        <button onclick="openCustomModal()" id="btn-custom">Create/Use Custom</button>
+        
+        <div style="width: 1px; height: 30px; background: #ccc; margin: 0 10px;"></div>
+        
+        <strong>Color:</strong>
+        <input type="color" id="colorPicker" value="#B22222">
+        
+        <div style="width: 1px; height: 30px; background: #ccc; margin: 0 10px;"></div>
+        
+        <button onclick="clearCanvas()">Clear</button>
+        <button onclick="window.print()">Export / Print PDF</button>
+    </div>
+
+    <div class="canvas-container">
+        <canvas id="mainCanvas" width="800" height="600"></canvas>
+    </div>
+
+    <div id="overlay"></div>
+    <div id="customBeadModal">
+        <h3>Draw Your Custom Bead</h3>
+        <p>Draw a shape below to create a stamp.</p>
+        <canvas id="customCanvas" width="50" height="50" style="border: 1px dashed #ccc; cursor: crosshair;"></canvas>
+        <br><br>
+        <button onclick="saveCustomShape()">Save & Use</button>
+        <button onclick="closeCustomModal()">Cancel</button>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
